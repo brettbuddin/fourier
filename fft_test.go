@@ -46,33 +46,22 @@ func TestButterflyReorder(t *testing.T) {
 }
 
 func TestForwardTransform(t *testing.T) {
-	buf := make([]complex128, 4)
-	for i := range buf {
-		buf[i] = complex(float64(i)+1, 0)
+	buf := make([]complex128, 8)
+	for i := 0; i < 4; i++ {
+		buf[i] = complex(1, 0)
 	}
 
 	Forward(buf)
-
-	expected := []complex128{
-		complex(10, 0),
-		complex(-2, 2),
-		complex(-2, 0),
-		complex(-2, -2),
-	}
-
-	for i := range expected {
-		if real(expected[i]) == 0 {
-			assert.Equal(t, 0.0, real(buf[i]))
-		} else {
-			assert.InEpsilon(t, real(expected[i]), real(buf[i]), epsilon)
-		}
-
-		if imag(expected[i]) == 0 {
-			assert.Equal(t, 0.0, imag(buf[i]))
-		} else {
-			assert.InEpsilon(t, imag(expected[i]), imag(buf[i]), epsilon)
-		}
-	}
+	cmplxEqualEpsilon(t, []complex128{
+		(4 + 0i),
+		(1 - 2.414213562373095i),
+		(0 + 0i),
+		(1 - 0.4142135623730949i),
+		(0 + 0i),
+		(0.9999999999999999 + 0.4142135623730949i),
+		(0 + 0i),
+		(0.9999999999999997 + 2.414213562373095i),
+	}, buf, epsilon)
 }
 
 func TestRoundTripTransform(t *testing.T) {
@@ -82,11 +71,71 @@ func TestRoundTripTransform(t *testing.T) {
 	}
 
 	Forward(buf)
-	Inverse(buf)
+	cmplxEqualEpsilon(t, []complex128{
+		(10 + 0i),
+		(-2 + 2i),
+		(-2 + 0i),
+		(-2 - 2i),
+	}, buf, epsilon)
 
-	expected := []float64{1, 2, 3, 4}
+	Inverse(buf)
+	cmplxEqualEpsilon(t, []complex128{
+		(1 + 0i),
+		(2 + 0i),
+		(3 + 0i),
+		(4 + 0i),
+	}, buf, epsilon)
+}
+
+func cmplxEqualEpsilon(t *testing.T, expected, actual []complex128, epsilon float64) {
+	t.Helper()
 
 	for i := range expected {
-		assert.InEpsilon(t, expected[i], real(buf[i]), epsilon)
+		if real(expected[i]) == 0 {
+			assert.Equal(t, 0.0, real(actual[i]))
+		} else {
+			assert.InEpsilon(t, real(expected[i]), real(actual[i]), epsilon)
+		}
+
+		if imag(expected[i]) == 0 {
+			assert.Equal(t, 0.0, imag(actual[i]))
+		} else {
+			assert.InEpsilon(t, imag(expected[i]), imag(actual[i]), epsilon)
+		}
+	}
+}
+
+func BenchmarkFFT(b *testing.B) {
+	b.ReportAllocs()
+	b.StopTimer()
+	src := make([]complex128, 64)
+	for i := range src {
+		src[i] = complex(float64(i)+1, 0)
+	}
+
+	buf := make([]complex128, len(src))
+	for i := 0; i < b.N; i++ {
+		copy(buf, src)
+		b.StartTimer()
+		Forward(buf)
+		b.StopTimer()
+	}
+}
+
+func BenchmarkIFFT(b *testing.B) {
+	b.ReportAllocs()
+	b.StopTimer()
+	src := make([]complex128, 64)
+	for i := range src {
+		src[i] = complex(float64(i)+1, 0)
+	}
+	Forward(src)
+
+	buf := make([]complex128, len(src))
+	for i := 0; i < b.N; i++ {
+		copy(buf, src)
+		b.StartTimer()
+		Inverse(buf)
+		b.StopTimer()
 	}
 }
