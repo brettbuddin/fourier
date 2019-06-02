@@ -17,8 +17,8 @@ type Convolver struct {
 
 	// Buffers
 	inputSegments, impulseSegments [][]complex128
-	outputBuf, tempBuf             []complex128
-	inputBuf, overlapBuf           []float64
+	output, temp                   []complex128
+	input, overlap                 []float64
 
 	// Internal state
 	inputSegmentPos, inputPos int
@@ -27,39 +27,29 @@ type Convolver struct {
 
 // NewConvolver returns a new Convolver.
 //
-// blockSize is maximum size consumed from the input (loaded into an input
+// desiredBlockSize is maximum size consumed from the input (loaded into an input
 // segment) for each convolution operation (FFT -> multiply -> IFFT). Ideally,
-// it's maximum number of samples you plan on processing for each call to Convolve.
+// it's maximum number of samples you plan on processing for each call to
+// Convolve.
 //
 // The length of the impulse response is limited to 1920000 samples (20s * 96kHz).
 // Exceeding this maximum length will result in truncation of the IR.
-func NewConvolver(blockSize int, ir []float64, opts ...ConvolverOption) (*Convolver, error) {
-	if blockSize == 0 {
+func NewConvolver(desiredBlockSize int, ir []float64, opts ...ConvolverOption) (*Convolver, error) {
+	if desiredBlockSize == 0 {
 		return nil, errors.New("block size cannot be zero")
-	}
-
-	// Determine the sizes of the buffers
-	blockSize = nextPowerOfTwo(blockSize)
-	fftSize := 4 * blockSize
-	if blockSize > 128 {
-		fftSize = 2 * blockSize
 	}
 
 	// Allocate buffers
 	var (
-		inputBuf   = make([]float64, fftSize)
-		outputBuf  = make([]complex128, fftSize)
-		tempBuf    = make([]complex128, fftSize)
-		overlapBuf = make([]float64, fftSize)
-		c          = &Convolver{
+		blockSize, fftSize = calcPartitionSize(desiredBlockSize)
+		c                  = &Convolver{
 			blockSize:   blockSize,
 			fftSize:     fftSize,
 			numChannels: 1,
-
-			inputBuf:   inputBuf,
-			outputBuf:  outputBuf,
-			tempBuf:    tempBuf,
-			overlapBuf: overlapBuf,
+			input:       make([]float64, fftSize),
+			overlap:     make([]float64, fftSize),
+			output:      make([]complex128, fftSize),
+			temp:        make([]complex128, fftSize),
 		}
 	)
 
@@ -161,10 +151,10 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 			if inIdx <= len(in)-1 {
 				v = in[inIdx]
 			}
-			c.inputBuf[c.inputPos+i] = v
+			c.input[c.inputPos+i] = v
 		}
 		inputSegment := c.inputSegments[c.inputSegmentPos]
-		if err := cmplxCopyReal(inputSegment, c.inputBuf); err != nil {
+		if err := cmplxCopyReal(inputSegment, c.input); err != nil {
 			return err
 		}
 
@@ -175,7 +165,7 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 
 		// Multiply
 		if c.inputPos == 0 {
-			cmplxZero(c.tempBuf)
+			cmplxZero(c.temp)
 
 			index := c.inputSegmentPos
 			for i := 1; i < numImpulseSegments; i++ {
@@ -187,19 +177,19 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 				inputSegment := c.inputSegments[index]
 				impulseSegment := c.impulseSegments[i]
 
-				cmplxMultiplyAdd(c.tempBuf, inputSegment, impulseSegment)
+				cmplxMultiplyAdd(c.temp, inputSegment, impulseSegment)
 			}
 		}
 
-		if err := cmplxCopy(c.outputBuf, c.tempBuf); err != nil {
+		if err := cmplxCopy(c.output, c.temp); err != nil {
 			return err
 		}
-		if err := cmplxMultiplyAdd(c.outputBuf, inputSegment, c.impulseSegments[0]); err != nil {
+		if err := cmplxMultiplyAdd(c.output, inputSegment, c.impulseSegments[0]); err != nil {
 			return err
 		}
 
 		// Inverse FFT
-		if err := Inverse(c.outputBuf); err != nil {
+		if err := Inverse(c.output); err != nil {
 			return err
 		}
 
@@ -215,24 +205,24 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 			if outIdx > len(out)-1 {
 				continue
 			}
-			out[outIdx] = real(c.outputBuf[pos]) + c.overlapBuf[pos]
+			out[outIdx] = real(c.output[pos]) + c.overlap[pos]
 		}
 
 		c.inputPos += numSamplesToProcess
 
 		if c.inputPos == blockSize {
 			c.inputPos = 0
-			zero(c.inputBuf)
+			zero(c.input)
 
 			// Additional overlap when segment size > block size
-			arErr := cmplxAddReal(c.outputBuf[blockSize:], c.overlapBuf[blockSize:], fftSize-2*blockSize)
+			arErr := cmplxAddReal(c.output[blockSize:], c.overlap[blockSize:], fftSize-2*blockSize)
 			if arErr != nil {
 				return arErr
 			}
 
 			// Save overlap
 			for i := 0; i < fftSize-blockSize; i++ {
-				c.overlapBuf[i] = real(c.outputBuf[i+blockSize])
+				c.overlap[i] = real(c.output[i+blockSize])
 			}
 
 			// Step the current segment backwards
@@ -330,6 +320,17 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// calcPartitionSize calculates the appropriate size of the partitions used in
+// convolution. It returns two values: a block size that's quantized (up) to the
+// nearest power of two and the FFT size we should use.
+func calcPartitionSize(desiredblockSize int) (blockSize int, fftSize int) {
+	blockSize = nextPowerOfTwo(desiredblockSize)
+	if blockSize <= 128 {
+		return blockSize, 4 * blockSize
+	}
+	return blockSize, 2 * blockSize
 }
 
 // ConvolverOption is a configuration option for Convolver.
