@@ -13,7 +13,7 @@ const maxIRSamples = 20 * 96000
 // designed to convolve very long input streams with a FIR filter.
 type Convolver struct {
 	// Sizes
-	blockSize, fftSize, numImpulseSegments, numInputSegments int
+	blockSize, fftSize int
 
 	// Buffers
 	inputSegments, impulseSegments [][]complex128
@@ -115,8 +115,6 @@ func (c *Convolver) SetImpulseResponse(ir []float64) error {
 		Forward(impulseSegments[i])
 	}
 
-	c.numInputSegments = numInputSegments
-	c.numImpulseSegments = numImpulseSegments
 	c.inputSegments = inputSegments
 	c.impulseSegments = impulseSegments
 
@@ -126,8 +124,8 @@ func (c *Convolver) SetImpulseResponse(ir []float64) error {
 // Convolve convolves an a chunk of input against the loaded impulse response.
 func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 	var (
-		numImpulseSegments  = c.numImpulseSegments
-		numInputSegments    = c.numInputSegments
+		numImpulseSegments  = len(c.impulseSegments)
+		numInputSegments    = len(c.inputSegments)
 		channel             = c.channel
 		numChannels         = c.numChannels
 		step                = numInputSegments / numImpulseSegments
