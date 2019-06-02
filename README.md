@@ -54,5 +54,5 @@ filter.MakeLowPass(kernel, window.Lanczos, cutoff/sampleRate)
 
 conv, _ := fourier.NewConvolver(blockSize, kernel)
 
-conv.Convolve(out, in, blockSize)
+conv.Convolve(out, in, len(out))
 ```
