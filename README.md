@@ -29,17 +29,15 @@ fourier.Inverse(buf)
 ```go
 var (
     blockSize = 8
-    conv, _   = fourier.NewConvolver(blockSize, []float64{1, 1})
+    ir        = []float64{1, 1}
+    conv, _   = fourier.NewConvolver(blockSize, ir)
     in        = []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
-    out       = make([]float64, len(in))
+    out       = make([]float64, len(in)+len(ir)-1)
 )
 
-// Convolve the input in blocks of 8
-for i := 0; i < len(out); i += blockSize {
-    _ = conv.Convolve(out, in, blockSize)
-}
+_ = conv.Convolve(out, in, len(out))
 
-// out [1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31] (+/- small error)
+// out [1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 16] (+/- small error)
 ```
 
 ### Filtering
