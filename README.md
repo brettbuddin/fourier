@@ -13,7 +13,7 @@
 This library was written for use in a real-time audio context. `Convolver`
 allocates all of its buffers up-front and `Forward`/`Inverse` (FFT/IFFT) operate
 in-place. This is to avoid allocations in the hot-path. I've used this library
-to implement convolution reverb and perform various types of filtering in audio.
+to implement convolution reverb and perform various types of filtering.
 
 ## Examples
 
