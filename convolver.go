@@ -222,11 +222,7 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 
 		if c.inputPos == blockSize {
 			c.inputPos = 0
-
-			// Empty input buffer
-			for i := 0; i < fftSize; i++ {
-				c.inputBuf[i] = 0
-			}
+			zero(c.inputBuf)
 
 			// Additional overlap when segment size > block size
 			arErr := cmplxAddReal(c.outputBuf[blockSize:], c.overlapBuf[blockSize:], fftSize-2*blockSize)
@@ -319,6 +315,13 @@ func cmplxAddReal(dest []complex128, vals []float64, size int) error {
 func cmplxZero(dest []complex128) {
 	for i := range dest {
 		dest[i] = complex(0, 0)
+	}
+}
+
+// zero zeros out a buffer.
+func zero(dest []float64) {
+	for i := range dest {
+		dest[i] = 0
 	}
 }
 
