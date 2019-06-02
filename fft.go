@@ -108,6 +108,10 @@ func log2(v uint) uint {
 
 // reverseBits reverses all bits up until a designated place significance.
 func reverseBits(v, bits uint) uint {
+	if bits == 1 {
+		return v
+	}
+
 	var r uint = v & 1
 	bits--
 

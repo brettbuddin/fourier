@@ -17,6 +17,7 @@ func TestBitReversal(t *testing.T) {
 	require.Equal(t, "0000000010000000", fmt.Sprintf(b16, reverseBits(1, 8)))
 	require.Equal(t, "0000000000100000", fmt.Sprintf(b16, reverseBits(1, 6)))
 	require.Equal(t, "1000000000000000", fmt.Sprintf(b16, reverseBits(1, 16)))
+	require.Equal(t, "0000000000000001", fmt.Sprintf(b16, reverseBits(1, 1)))
 }
 
 func TestButterflyReorder(t *testing.T) {
