@@ -28,11 +28,10 @@ fourier.Inverse(buf)
 
 ```go
 var (
-    blockSize = 8
-    ir        = []float64{1, 1}
-    conv, _   = fourier.NewConvolver(blockSize, ir)
-    in        = []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
-    out       = make([]float64, len(in)+len(ir)-1)
+    ir       = []float64{1, 1}
+    conv, _  = fourier.NewConvolver(8, ir)
+    in       = []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+    out      = make([]float64, len(in)+len(ir)-1)
 )
 
 _ = conv.Convolve(out, in, len(out))
