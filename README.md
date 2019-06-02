@@ -7,8 +7,8 @@
 
 - Fast Fourier Transform implementation via [Cooley-Tukey (Radix-2 DIT)](https://en.wikipedia.org/wiki/Cooley–Tukey_FFT_algorithm).
 - Convolution engine which performs partitioned convolution in the frequency domain using the [overlap-add method](https://en.wikipedia.org/wiki/Overlap–add_method).
-- Windowing functions to use as impulse responses in convolution. (e.g.  Hann, Lanczos, etc)
-- Functions for creating different types of FIR filters. (e.g.  low-pass, high-pass, etc)
+- Windowing functions for creating impulse responses. (e.g.  Hann, Lanczos, etc)
+- Functions for creating common types of FIR filters. (e.g.  low-pass, high-pass, etc)
 
 ## Examples
 
