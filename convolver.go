@@ -39,7 +39,6 @@ func NewConvolver(desiredBlockSize int, ir []float64, opts ...ConvolverOption) (
 		return nil, errors.New("block size cannot be zero")
 	}
 
-	// Allocate buffers
 	var (
 		blockSize, fftSize = calcPartitionSize(desiredBlockSize)
 		c                  = &Convolver{
