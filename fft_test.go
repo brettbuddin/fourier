@@ -21,6 +21,28 @@ func TestBitReversal(t *testing.T) {
 	require.Equal(t, "0000000000000001", fmt.Sprintf(b16, reverseBits(1, 0)))
 }
 
+func TestLog2(t *testing.T) {
+	require.Equal(t, uint(1), log2(3))
+	require.Equal(t, uint(4), log2(16))
+	require.Equal(t, uint(5), log2(32))
+}
+
+func TestIsPowerOf2(t *testing.T) {
+	require.True(t, isPowerOfTwo(2))
+	require.True(t, isPowerOfTwo(4))
+	require.True(t, isPowerOfTwo(8))
+	require.True(t, isPowerOfTwo(1))
+	require.False(t, isPowerOfTwo(5))
+	require.False(t, isPowerOfTwo(7))
+}
+
+func TestNextPowerOfTwo(t *testing.T) {
+	require.Equal(t, 1, nextPowerOfTwo(1))
+	require.Equal(t, 8, nextPowerOfTwo(5))
+	require.Equal(t, 64, nextPowerOfTwo(50))
+	require.Equal(t, 64, nextPowerOfTwo(64))
+}
+
 func TestButterflyReorder(t *testing.T) {
 	buf := []complex128{
 		complex(1, 0),
