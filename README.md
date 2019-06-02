@@ -10,6 +10,11 @@
 - Windowing functions for creating impulse responses. (e.g.  Hann, Lanczos, etc)
 - Functions for creating common types of FIR filters. (e.g.  low-pass, high-pass, etc)
 
+This library was written for use in a real-time audio context. `Convolver`
+allocates all of its buffers up-front and `Forward`/`Inverse` (FFT/IFFT) operate
+in-place. This is to avoid allocations in the hot-path. I've used this library
+to implement convolution reverb and perform various types of filtering in audio.
+
 ## Examples
 
 ### Fast Fourier Transform
