@@ -4,7 +4,6 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/brettbuddin/fourier)](https://goreportcard.com/report/github.com/brettbuddin/fourier)
 [![Coverage Status](https://codecov.io/gh/brettbuddin/fourier/graph/badge.svg)](https://codecov.io/gh/brettbuddin/fourier)
 [![Build Status](https://travis-ci.org/brettbuddin/fourier.svg)](https://travis-ci.org/brettbuddin/fourier)
-[![GitHub Release](https://img.shields.io/github/release/brettbuddin/fourier.svg?style=flat)](https://github.com/brettbuddin/fourier/releases)
 
 - Fast Fourier Transform implementation via [Cooley-Tukey (Radix-2 DIT)](https://en.wikipedia.org/wiki/Cooley–Tukey_FFT_algorithm).
 - Convolution engine which performs partitioned convolution in the frequency domain using the [overlap-add method](https://en.wikipedia.org/wiki/Overlap–add_method).
