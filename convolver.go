@@ -16,9 +16,9 @@ type Convolver struct {
 	blockSize, fftSize int
 
 	// Buffers
-	inputSegments, impulseSegments [][]complex128
-	output, temp                   []complex128
-	input, overlap                 []float64
+	inputSegments, responseSegments [][]complex128
+	output, temp                    []complex128
+	input, overlap                  []float64
 
 	// Internal state
 	inputSegmentPos, inputPos int
@@ -39,18 +39,17 @@ func NewConvolver(desiredBlockSize int, ir []float64, opts ...ConvolverOption) (
 		return nil, errors.New("block size cannot be zero")
 	}
 
-	var (
-		blockSize, fftSize = calcPartitionSize(desiredBlockSize)
-		c                  = &Convolver{
-			blockSize:   blockSize,
-			fftSize:     fftSize,
-			numChannels: 1,
-			input:       make([]float64, fftSize),
-			overlap:     make([]float64, fftSize),
-			output:      make([]complex128, fftSize),
-			temp:        make([]complex128, fftSize),
-		}
-	)
+	blockSize, fftSize := calcPartitionSize(desiredBlockSize)
+
+	c := &Convolver{
+		blockSize:   blockSize,
+		fftSize:     fftSize,
+		numChannels: 1,
+		input:       make([]float64, fftSize),
+		overlap:     make([]float64, fftSize),
+		output:      make([]complex128, fftSize),
+		temp:        make([]complex128, fftSize),
+	}
 
 	for _, opt := range opts {
 		if err := opt(c); err != nil {
@@ -58,9 +57,7 @@ func NewConvolver(desiredBlockSize int, ir []float64, opts ...ConvolverOption) (
 		}
 	}
 
-	err := c.SetImpulseResponse(ir)
-
-	return c, err
+	return c, c.SetImpulseResponse(ir)
 }
 
 // SetImpulseResponse sets the impulse response used in convolution.
@@ -70,52 +67,33 @@ func (c *Convolver) SetImpulseResponse(ir []float64) error {
 	}
 
 	var (
-		fftSize            = c.fftSize
-		blockSize          = c.blockSize
-		irSize             = min(len(ir), maxIRSamples)
-		numImpulseSegments = int(irSize/(fftSize-blockSize) + 1)
+		fftSize             = c.fftSize
+		blockSize           = c.blockSize
+		fillSize            = fftSize - blockSize
+		irSize              = min(len(ir), maxIRSamples)
+		numResponseSegments = int(irSize/fillSize + 1)
 	)
 
-	numInputSegments := numImpulseSegments
+	numInputSegments := numResponseSegments
 	if blockSize <= 128 {
-		numInputSegments = 3 * numImpulseSegments
+		numInputSegments = 3 * numResponseSegments
 	}
 
-	// Allocate input segment buffers
+	// Allocate input segments
 	inputSegments := make([][]complex128, numInputSegments)
 	for i := range inputSegments {
 		inputSegments[i] = make([]complex128, fftSize)
 	}
 
-	// Allocate impulse segment buffers
-	impulseSegments := make([][]complex128, numImpulseSegments)
-	for i := range impulseSegments {
-		impulseSegments[i] = make([]complex128, fftSize)
+	// Allocate frequency response segments
+	responseSegments := make([][]complex128, numResponseSegments)
+	for i := range responseSegments {
+		responseSegments[i] = make([]complex128, fftSize)
 	}
-
-	// Split the impulse response into segments and transform each segment to
-	// the frequency domain.
-	for i := 0; i < numImpulseSegments; i++ {
-		if i == 0 {
-			impulseSegments[i][0] = complex(1, 0)
-		}
-
-		for j := 0; j < fftSize-blockSize; j++ {
-			irIdx := j + i*(fftSize-blockSize)
-			if irIdx < len(ir) {
-				v := ir[irIdx]
-				if math.IsNaN(v) {
-					v = 0
-				}
-				impulseSegments[i][j] = complex(v, 0)
-			}
-		}
-
-		Forward(impulseSegments[i])
-	}
+	loadIR(responseSegments, ir, fillSize)
 
 	c.inputSegments = inputSegments
-	c.impulseSegments = impulseSegments
+	c.responseSegments = responseSegments
 
 	return nil
 }
@@ -123,11 +101,11 @@ func (c *Convolver) SetImpulseResponse(ir []float64) error {
 // Convolve convolves an a chunk of input against the loaded impulse response.
 func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 	var (
-		numImpulseSegments  = len(c.impulseSegments)
+		numResponseSegments = len(c.responseSegments)
 		numInputSegments    = len(c.inputSegments)
 		channel             = c.channel
 		numChannels         = c.numChannels
-		step                = numInputSegments / numImpulseSegments
+		step                = numInputSegments / numResponseSegments
 		fftSize             = c.fftSize
 		blockSize           = c.blockSize
 		numSamplesProcessed = 0
@@ -140,8 +118,8 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 			numSamplesToProcess = min(numRemaining, blockLimit)
 		)
 
-		// Copy the input into the internal input buffer. Fill with zeros if
-		// we've stepped beyond the length of the input.
+		// Copy the input into the internal input buffer. If we've stepped
+		// beyond the length of our input, leave zeros in the buffer.
 		for i := 0; i < numSamplesToProcess; i++ {
 			inIdx := channel + numSamplesProcessed + i*numChannels
 			var v float64
@@ -165,23 +143,19 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 			cmplxZero(c.temp)
 
 			index := c.inputSegmentPos
-			for i := 1; i < numImpulseSegments; i++ {
+			for i := 1; i < numResponseSegments; i++ {
 				index += step
 				if index >= numInputSegments {
 					index -= numInputSegments
 				}
-
-				inputSegment := c.inputSegments[index]
-				impulseSegment := c.impulseSegments[i]
-
-				cmplxMultiplyAdd(c.temp, inputSegment, impulseSegment)
+				cmplxMultiplyAdd(c.temp, c.inputSegments[index], c.responseSegments[i])
 			}
 		}
 
 		if err := cmplxCopy(c.output, c.temp); err != nil {
 			return err
 		}
-		if err := cmplxMultiplyAdd(c.output, inputSegment, c.impulseSegments[0]); err != nil {
+		if err := cmplxMultiplyAdd(c.output, inputSegment, c.responseSegments[0]); err != nil {
 			return err
 		}
 
@@ -196,9 +170,7 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 				outIdx = numSamplesProcessed + channel + i*numChannels
 				pos    = c.inputPos + i
 			)
-			// Guard against stepping outside the bounds of the output buffer if
-			// the user supplied a buffer that's not a multiple of the block
-			// size.
+			// Guard against stepping outside the bounds of the output buffer
 			if outIdx > len(out)-1 {
 				continue
 			}
@@ -217,7 +189,7 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 				return arErr
 			}
 
-			// Save overlap
+			// Save the tail of the output as overlap
 			for i := 0; i < fftSize-blockSize; i++ {
 				c.overlap[i] = real(c.output[i+blockSize])
 			}
@@ -234,6 +206,31 @@ func (c *Convolver) Convolve(out, in []float64, numSamples int) error {
 	}
 
 	return nil
+}
+
+// loadIR splits the impulse response into segments and transforms each segment
+// to the frequency domain to produce a partitioned frequency response. fillSize
+// specifies the number of samples of the IR that should be loaded into each
+// segment.
+func loadIR(segments [][]complex128, ir []float64, fillSize int) {
+	for i := range segments {
+		if i == 0 {
+			segments[i][0] = complex(1, 0)
+		}
+
+		for j := 0; j < fillSize; j++ {
+			irIdx := j + i*(fillSize)
+			if irIdx < len(ir) {
+				v := ir[irIdx]
+				if math.IsNaN(v) {
+					v = 0
+				}
+				segments[i][j] = complex(v, 0)
+			}
+		}
+
+		Forward(segments[i])
+	}
 }
 
 // cmplxMultiplyAdd multiplies two complex buffers and adds the result to another.
