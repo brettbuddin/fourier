@@ -215,7 +215,7 @@ func ExampleConvolver_chunks() {
 
 		// We are deriving the input and output chunks here, but they would be
 		// presented to you via the callback mechanisms in a streaming audio
-		// scenario.
+		// scenario. The algorithm is able to accomodate this chunking.
 		_ = conv.Convolve(outChunk, inChunk, blockSize)
 	}
 

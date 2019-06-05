@@ -33,6 +33,8 @@ fourier.Inverse(buf)
 
 ### Convolution
 
+#### Full-Buffer
+
 ```go
 var (
     ir       = []float64{1, 1}
@@ -42,6 +44,36 @@ var (
 )
 
 _ = conv.Convolve(out, in, len(out))
+
+// out [1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 16] (+/- small error)
+```
+
+#### Chunks
+
+```go
+var (
+    blockSize = 8
+    ir        = []float64{1, 1}
+    conv, _   = fourier.NewConvolver(8, ir)
+    in        = []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+    out       = make([]float64, len(in)+len(ir)-1)
+)
+
+for i := 0; i < len(out); i += blockSize {
+	var (
+		inBegin = min(i, len(in))
+		inEnd   = min(i+blockSize, len(in))
+		outEnd  = min(i+blockSize, len(out))
+
+		inChunk  = in[inBegin:inEnd]
+		outChunk = out[i:outEnd]
+	)
+
+	// We are deriving the input and output chunks here, but they would be
+	// presented to you via the callback mechanisms in a streaming audio
+	// scenario. The algorithm is able to accomodate this chunking.
+	_ = conv.Convolve(outChunk, inChunk, blockSize)
+}
 
 // out [1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 16] (+/- small error)
 ```
