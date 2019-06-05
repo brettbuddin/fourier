@@ -111,6 +111,56 @@ func TestRoundTripTransform(t *testing.T) {
 	}, buf, epsilon)
 }
 
+func TestFrequencyDomainZeroPaddingResample(t *testing.T) {
+	for _, tt := range []struct {
+		src      []float64
+		scale    int
+		expected []float64
+	}{
+		{
+			src:      []float64{1, 0.5, 1.0, 0.5, 1.0, 0.5, 1.0, 0.5},
+			scale:    1,
+			expected: []float64{1, 0.5, 1.0, 0.5, 1.0, 0.5, 1.0, 0.5},
+		},
+		{
+			src:      []float64{1, 0.5, 1.0, 0.5, 1.0, 0.5, 1.0, 0.5},
+			scale:    2,
+			expected: []float64{1, 0.75, 0.5, 0.75, 1.0, 0.75, 0.5, 0.75, 1.0, 0.75, 0.5, 0.75, 1.0, 0.75, 0.5, 0.75},
+		},
+		{
+			src:      []float64{1, 0.5, 1.0, 0.5, 1.0, 0.5, 1.0, 0.5},
+			scale:    8,
+			expected: []float64{1, 0.9809698831278217, 0.9267766952966369, 0.8456708580912724, 0.75, 0.6543291419087276, 0.5732233047033631, 0.5190301168721783, 0.5, 0.5190301168721783, 0.5732233047033631, 0.6543291419087276, 0.75, 0.8456708580912724, 0.9267766952966369, 0.9809698831278217, 1, 0.9809698831278217, 0.9267766952966369, 0.8456708580912724, 0.75, 0.6543291419087276, 0.5732233047033631, 0.5190301168721783, 0.5, 0.5190301168721783, 0.5732233047033631, 0.6543291419087276, 0.75, 0.8456708580912724, 0.9267766952966369, 0.9809698831278217, 1, 0.9809698831278217, 0.9267766952966369, 0.8456708580912724, 0.75, 0.6543291419087276, 0.5732233047033631, 0.5190301168721783, 0.5, 0.5190301168721783, 0.5732233047033631, 0.6543291419087276, 0.75, 0.8456708580912724, 0.9267766952966369, 0.9809698831278217, 1, 0.9809698831278217, 0.9267766952966369, 0.8456708580912724, 0.75, 0.6543291419087276, 0.5732233047033631, 0.5190301168721783, 0.5, 0.5190301168721783, 0.5732233047033631, 0.6543291419087276, 0.75, 0.8456708580912724, 0.9267766952966369, 0.9809698831278217},
+		},
+	} {
+		var (
+			l       = len(tt.src)
+			ln      = l * tt.scale
+			csrc    = make([]complex128, l)
+			cpadded = make([]complex128, ln)
+			out     = make([]float64, ln)
+		)
+
+		for i, v := range tt.src {
+			csrc[i] = complex(v*float64(tt.scale), 0)
+		}
+		require.NoError(t, Forward(csrc))
+
+		// Split the spectral content down the middle and copy both ends into the
+		// ends of a new upscaled buffer. This will leave the zeros in the center.
+		for i := 0; i < l/2; i++ {
+			cpadded[i] = csrc[i]
+			cpadded[len(cpadded)-1-i] = csrc[len(csrc)-1-i]
+		}
+		require.NoError(t, Inverse(cpadded))
+		for i, v := range cpadded {
+			out[i] = real(v)
+		}
+
+		assert.Equal(t, tt.expected, out)
+	}
+}
+
 func cmplxEqualEpsilon(t *testing.T, expected, actual []complex128, epsilon float64) {
 	t.Helper()
 
