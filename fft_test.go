@@ -168,10 +168,7 @@ func TestMagnitude(t *testing.T) {
 	const size = 256
 
 	carrier := make([]complex128, size)
-	for i := 0; i < len(carrier); i++ {
-		v := math.Cos((float64(i) * 2 * math.Pi * fc) / fs)
-		carrier[i] = complex(v, 0)
-	}
+	cmplxCarrier(carrier, fc, fs)
 
 	err := Forward(carrier)
 	require.NoError(t, err)
@@ -245,4 +242,24 @@ func BenchmarkIFFT(b *testing.B) {
 		Inverse(buf)
 		b.StopTimer()
 	}
+}
+
+func ExampleRoundtrip() {
+	buf := make([]complex128, 8)
+	for i := range buf {
+		buf[i] = complex(float64(i+1), 0)
+	}
+	fmt.Println("time:", buf)
+
+	// Transform to the frequency domain
+	Forward(buf)
+	fmt.Println("frequency:", buf)
+
+	// Transform back to the time domain
+	Inverse(buf)
+	fmt.Println("time:", buf)
+
+	// Output: time: [(1+0i) (2+0i) (3+0i) (4+0i) (5+0i) (6+0i) (7+0i) (8+0i)]
+	// frequency: [(36+0i) (-4+9.65685424949238i) (-4+4i) (-4+1.6568542494923797i) (-4+0i) (-3.9999999999999996-1.6568542494923797i) (-3.9999999999999996-4i) (-3.9999999999999987-9.65685424949238i)]
+	// time: [(1.0000000000000002+0i) (2+0i) (3+0i) (4+0i) (5+0i) (6+0i) (7+0i) (8+0i)]
 }

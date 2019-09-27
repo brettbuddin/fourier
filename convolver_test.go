@@ -5,6 +5,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/brettbuddin/fourier/filter"
+	"github.com/brettbuddin/fourier/window"
 	"github.com/stretchr/testify/require"
 )
 
@@ -185,10 +187,7 @@ func ExampleConvolver_simple() {
 	_ = conv.Convolve(out, in, len(out))
 
 	// Round to nearest integer (removing error) for pretty printing
-	const roundTo = 1e10
-	for i := range out {
-		out[i] = math.Round(out[i]*roundTo) / roundTo
-	}
+	roundTo(out, 1e10)
 
 	fmt.Println(out)
 	// Output: [1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 16]
@@ -220,11 +219,82 @@ func ExampleConvolver_chunks() {
 	}
 
 	// Round to nearest integer (removing error) for pretty printing
-	const roundTo = 1e10
-	for i := range out {
-		out[i] = math.Round(out[i]*roundTo) / roundTo
-	}
+	roundTo(out, 1e10)
 
 	fmt.Println(out)
 	// Output: [1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 16]
+}
+
+func ExampleFiltering() {
+	var (
+		blockSize  = 256
+		sampleRate = 320.0
+		cutoff     = 30.0
+		kernel     = make([]float64, 32)
+		in         = make([]float64, blockSize)
+	)
+
+	// Sum two cosine waves, one at 10Hz and another at 90Hz
+	carrier(in, 10.0, sampleRate)
+	carrier(in, 90.0, sampleRate)
+
+	// Calculate bins with high magnitude before filtering
+	spikesBefore := detectSpikes(in)
+
+	// Build a filter kernel that filters frequencies higher than 30Hz at 320Hz
+	// sampling rate and convolve the summed signal with it.
+	filter.MakeLowPass(kernel, window.Lanczos, cutoff/sampleRate)
+	conv, _ := NewConvolver(blockSize, kernel)
+
+	out := make([]float64, blockSize)
+	conv.Convolve(out, in, len(out))
+
+	// Calculate bins with high magnitude after filtering
+	spikesAfter := detectSpikes(out)
+
+	fmt.Println("spikes at (before):", spikesBefore)
+	fmt.Println("spikes at (after):", spikesAfter)
+	// Output: spikes at (before): [8 72 184 248]
+	// spikes at (after): [8 248]
+}
+
+func magnitude(src []float64) []float64 {
+	dest := make([]float64, len(src))
+	freq := make([]complex128, len(src))
+	for i, v := range src {
+		freq[i] = complex(v, 0)
+	}
+	Forward(freq)
+	Magnitude(dest, freq)
+	return dest
+}
+
+func detectSpikes(buf []float64) []int {
+	var spikes []int
+	for i, v := range magnitude(buf) {
+		if v > 0.2 {
+			spikes = append(spikes, i)
+		}
+	}
+	return spikes
+}
+
+func carrier(dest []float64, fc, fs float64) {
+	for i := 0; i < len(dest); i++ {
+		dest[i] += math.Cos((float64(i) * 2 * math.Pi * fc) / fs)
+	}
+}
+
+func cmplxCarrier(dest []complex128, fc, fs float64) {
+	destf := make([]float64, len(dest))
+	carrier(destf, fc, fs)
+	for i := range dest {
+		dest[i] = complex(destf[i], 0)
+	}
+}
+
+func roundTo(out []float64, epsilon float64) {
+	for i := range out {
+		out[i] = math.Round(out[i]*epsilon) / epsilon
+	}
 }

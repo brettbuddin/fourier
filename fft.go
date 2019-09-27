@@ -23,41 +23,27 @@ func Inverse(v []complex128) error {
 	if err := forward(v); err != nil {
 		return err
 	}
-	normalize(v)
+	cmplxNormalize(v, len(v))
 	return nil
 }
 
 // Magnitude calculates the normalized magnitude of a frequency-domain signal.
-// Each bin represents a magnitude for a specific frequency in the input.
+// Each bin represents the magnitude of a specific frequency in the input. Use
+// the first half of the output buffer for a traditional frequency content view
+// (Nyquist is at N/2).
 //
 // Pop! Pop!
 func Magnitude(dest []float64, src []complex128) error {
 	if len(dest) != len(src) {
 		return fmt.Errorf("source and destination slices not the same size: dest=%d src=%d", len(dest), len(src))
 	}
-	var max float64
 	for i := 0; i < len(src); i++ {
-		v := cmplx.Abs(src[i])
-		if v > max {
-			max = v
-		}
-		dest[i] = v
+		dest[i] = cmplx.Abs(src[i])
 	}
 
-	mult := 1.0 / max
-	for i := 0; i < len(src); i++ {
-		dest[i] *= mult
-	}
+	normalize(dest, len(dest)/2)
 
 	return nil
-}
-
-// normalize proportions the values to the length of the buffer
-func normalize(v []complex128) {
-	scale := 1 / float64(len(v))
-	for i := range v {
-		v[i] = complex(real(v[i])*scale, 0)
-	}
 }
 
 // forward performs a forward FFT.
@@ -168,4 +154,20 @@ func nextPowerOfTwo(v int) int {
 	v |= v >> 16
 	v++
 	return v
+}
+
+// cmplxNormalize proportions the values to the length of the buffer
+func cmplxNormalize(v []complex128, size int) {
+	scale := 1 / float64(size)
+	for i := range v {
+		v[i] = complex(real(v[i])*scale, 0)
+	}
+}
+
+// normalize proportions the values to the length of the buffer
+func normalize(v []float64, size int) {
+	scale := 1 / float64(size)
+	for i := range v {
+		v[i] = v[i] * scale
+	}
 }
