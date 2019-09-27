@@ -244,7 +244,7 @@ func BenchmarkIFFT(b *testing.B) {
 	}
 }
 
-func ExampleFFT_roundtrip() {
+func ExampleForward_roundtrip() {
 	buf := make([]complex128, 8)
 	for i := range buf {
 		buf[i] = complex(float64(i+1), 0)
