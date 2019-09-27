@@ -2,6 +2,7 @@ package fourier
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -159,6 +160,38 @@ func TestFrequencyDomainZeroPaddingResample(t *testing.T) {
 
 		assert.Equal(t, tt.expected, out)
 	}
+}
+
+func TestMagnitude(t *testing.T) {
+	const fc = 10.0
+	const fs = 32.0 * fc
+	const size = 256
+
+	carrier := make([]complex128, size)
+	for i := 0; i < len(carrier); i++ {
+		v := math.Cos((float64(i) * 2 * math.Pi * fc) / fs)
+		carrier[i] = complex(v, 0)
+	}
+
+	err := Forward(carrier)
+	require.NoError(t, err)
+
+	abs := make([]float64, len(carrier))
+	err = Magnitude(abs, carrier)
+	require.NoError(t, err)
+
+	// Carrier Frequency = 10Hz
+	// Resolution = 1.25Hz
+	// Spike @ Carrier Frequency / Resolution = 8
+	assert.Equal(t, 1.0, abs[8])
+
+	// Spike in negative frequencies
+	assert.Equal(t, 1.0, abs[248])
+
+	// Other parts should be close to zero
+	assert.Equal(t, 0.0, math.Round(abs[0]))
+	assert.Equal(t, 0.0, math.Round(abs[10]))
+
 }
 
 func cmplxEqualEpsilon(t *testing.T, expected, actual []complex128, epsilon float64) {

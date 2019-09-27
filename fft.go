@@ -4,6 +4,7 @@ package fourier
 
 import (
 	"errors"
+	"fmt"
 	"math/cmplx"
 )
 
@@ -23,6 +24,31 @@ func Inverse(v []complex128) error {
 		return err
 	}
 	normalize(v)
+	return nil
+}
+
+// Magnitude calculates the normalized magnitude of a frequency-domain signal.
+// Each bin represents a magnitude for a specific frequency in the input.
+//
+// Pop! Pop!
+func Magnitude(dest []float64, src []complex128) error {
+	if len(dest) != len(src) {
+		return fmt.Errorf("source and destination slices not the same size: dest=%d src=%d", len(dest), len(src))
+	}
+	var max float64
+	for i := 0; i < len(src); i++ {
+		v := cmplx.Abs(src[i])
+		if v > max {
+			max = v
+		}
+		dest[i] = v
+	}
+
+	mult := 1.0 / max
+	for i := 0; i < len(src); i++ {
+		dest[i] *= mult
+	}
+
 	return nil
 }
 
