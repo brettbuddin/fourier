@@ -14,4 +14,4 @@ allocates all of its buffers up-front and `Forward`/`Inverse` (FFT/IFFT) operate
 in-place. This is to avoid allocations in the hot-path. I've used this library
 to implement convolution reverb and perform various types of filtering.
 
-(Usage Examples)[https://godoc.org/github.com/brettbuddin/fourier#pkg-examples]
+[Usage Examples](https://godoc.org/github.com/brettbuddin/fourier#pkg-examples)
