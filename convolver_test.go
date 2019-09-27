@@ -225,7 +225,7 @@ func ExampleConvolver_chunks() {
 	// Output: [1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 16]
 }
 
-func ExampleFiltering() {
+func ExampleConvolver_filtering() {
 	var (
 		blockSize  = 256
 		sampleRate = 320.0
